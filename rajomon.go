@@ -151,7 +151,6 @@ func (pt *PriceTable) LoadShedding(ctx context.Context, tokens int64, methodName
 		}
 	} else if pt.priceAggregation == "additive" {
 		totalPrice := ownPrice + downstreamPrice
-		// totalPrice, _ := pt.RetrieveTotalPrice(ctx, methodName)
 
 		extratoken := tokens - totalPrice
 
@@ -177,17 +176,13 @@ func (pt *PriceTable) LoadShedding(ctx context.Context, tokens int64, methodName
 
 // unaryInterceptor is an example unary interceptor.
 func (pt *PriceTable) UnaryInterceptorClient(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	// Jiali: the following line print the method name of the req/response, will be used to update the
-	// logger("[Before Sub Req]:	Node %s calling Downstream\n", pt.nodeName)
-	// Jiali: before sending. check the price, calculate the #tokens to add to request, update the total tokens
+	// before sending. check the price, calculate the #tokens to add to request, update the total tokens
 	// overwrite rather than append to the header with the node name of this client
-	// ctx = metadata.AppendToOutgoingContext(ctx, "name", pt.nodeName)
 	var header metadata.MD // variable to store header and trailer
 	err := invoker(ctx, method, req, reply, cc, grpc.Header(&header))
 
 	// run the following code asynchorously, without blocking the main thread.
-	// go func() {
-	// Jiali: after replied. update and store the price info for future
+	// after replied. update and store the price info for future
 	if len(header["price"]) > 0 {
 		priceDownstream, _ := strconv.ParseInt(header["price"][0], 10, 64)
 		md, _ := metadata.FromOutgoingContext(ctx)
@@ -197,7 +192,6 @@ func (pt *PriceTable) UnaryInterceptorClient(ctx context.Context, method string,
 	} else {
 		logger("[After Resp]:	No price table received\n")
 	}
-	// }()
 
 	return err
 }
@@ -268,7 +262,7 @@ func (pt *PriceTable) UnaryInterceptorEnduser(ctx context.Context, method string
 	var tok int64
 	// Set a timer for the client to timeout if it has been waiting for too long.
 	startTime := time.Now()
-	// Jiali: before sending. check the price, calculate the #tokens to add to request, update the total tokens
+	// before sending. check the price, calculate the #tokens to add to request, update the total tokens
 	for {
 		// if waiting for longer than ClientTimeout, return error RateLimited
 		if pt.rateLimiting && pt.rateLimitWaiting && time.Since(startTime) > pt.clientTimeOut {
@@ -318,7 +312,6 @@ func (pt *PriceTable) UnaryInterceptorEnduser(ctx context.Context, method string
 				return status.Error(codes.ResourceExhausted, "Client is rate limited, req dropped without waiting.")
 			}
 			<-pt.rateLimiter
-			// logger("[Rate Limited]:	Client has been rate limited for %d ms, \n", time.Since(startTime).Milliseconds())
 			// log the waiting time so far for client and how long until timeout
 			logger("[Rate Limited]:	Client has been rate limited for %d ms, %d ms left until timeout.\n",
 				time.Since(startTime).Milliseconds(), (pt.clientTimeOut - time.Since(startTime)).Milliseconds())
@@ -351,7 +344,7 @@ func (pt *PriceTable) UnaryInterceptorEnduser(ctx context.Context, method string
 	var header metadata.MD // variable to store header and trailer
 	err := invoker(ctx, method, req, reply, cc, grpc.Header(&header))
 
-	// Jiali: after replied. update and store the price info for future
+	// after replied. update and store the price info for future
 	if len(header["price"]) > 0 {
 		priceDownstream, _ := strconv.ParseInt(header["price"][0], 10, 64)
 		pt.UpdateDownstreamPrice(ctx, methodName, header["name"][0], priceDownstream)
@@ -381,7 +374,7 @@ func (pt *PriceTable) UnaryInterceptor(ctx context.Context, req interface{}, inf
 		}
 	}
 
-	// Jiali: overload handler, do AQM, deduct the tokens on the request, update price info
+	// overload handler, do AQM, deduct the tokens on the request, update price info
 	var tok int64
 	var err error
 	// if the price are additive, then the tokens are stored in the "tokens" or tokens-nodeName field of the metadata
@@ -408,7 +401,6 @@ func (pt *PriceTable) UnaryInterceptor(ctx context.Context, req interface{}, inf
 	} else if pt.priceAggregation == "maximal" || pt.priceAggregation == "mean" {
 		// if the price are maximal, then the tokens are stored in the "tokens" field of the metadata
 		if val, ok := md["tokens"]; ok {
-			// logger("[Received Req]:	tokens for %s are %s\n", pt.nodeName, val)
 			// raise error if the val length is not 1
 			if len(val) > 1 {
 				return nil, status.Errorf(codes.InvalidArgument, "duplicated tokens")
@@ -423,9 +415,7 @@ func (pt *PriceTable) UnaryInterceptor(ctx context.Context, req interface{}, inf
 	methodName := md["method"][0]
 	tokenleft, price_string, err := pt.LoadShedding(ctx, tok, methodName)
 	if err == InsufficientTokens && pt.loadShedding {
-		// price_string, _ := pt.RetrieveTotalPrice(ctx, methodName)
-
-		// [Jiali]: Trying to send the header to the client stochastically, to avoid abrupt over rate limiting that may cause goodput to drop.
+		// Trying to send the header to the client stochastically, to avoid abrupt over rate limiting that may cause goodput to drop.
 		// with a probability of 1/5, send the price on error response to the client.
 		if tok%pt.priceFreq == 0 {
 			logger("[Sending Error Resp]:	Total price is %s\n", price_string)
@@ -441,8 +431,8 @@ func (pt *PriceTable) UnaryInterceptor(ctx context.Context, req interface{}, inf
 		return nil, err
 	}
 	if pt.priceAggregation == "additive" {
-		// Jiali: we need to attach the token info to the context, so that the downstream can retrieve it.
-		// Jiali: we actually need multiple kv pairs for the token information, because one context is sent to multiple downstreams.
+		// we need to attach the token info to the context, so that the downstream can retrieve it.
+		// we actually need multiple kv pairs for the token information, because one context is sent to multiple downstreams.
 		downstreamTokens, _ := pt.SplitTokens(ctx, tokenleft, methodName)
 		ctx = metadata.AppendToOutgoingContext(ctx, downstreamTokens...)
 
