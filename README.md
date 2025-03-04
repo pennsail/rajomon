@@ -1,8 +1,8 @@
 
-This is the official GitHub repository for the [NSDI'25](https://www.usenix.org/conference/nsdi25/presentation/xing) paper *Rajomon: Decentralized and Coordinated Overload Control for Latency-Sensitive Microservices*. It contains a package that can be imported by go-gRPC applications. Please find [other overload control packages here](https://github.com/orgs/pennsail/repositories). 
+This is the official repository for [Rajomon](https://www.usenix.org/conference/nsdi25/presentation/xing). It contains a go-gRPC interceptor package. Please find [other overload control packages here](https://github.com/orgs/pennsail/repositories). 
 
 # Rajomon: Overload Control for Microservices
-This document explains the design and implementation of Rajomon, a system for overload control in microservices. 
+This document explains the design and implementation of Rajomon, a *Decentralized and Coordinated Overload Control for Latency-Sensitive Microservice*. 
 
 Overload control is an important feature of modern cloud applications. As these applications grow increasingly complex, designing efficient overload control schemes at scale is tedious. In this paper we argue part of the challenge is a lack of first principles mechanisms one can use to design scalable and verifiable policies.
 
