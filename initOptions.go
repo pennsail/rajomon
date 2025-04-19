@@ -138,7 +138,6 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 	}
 
 	if priceStrategy, ok := options["priceStrategy"].(string); ok {
-		// if the priceStrategy is not "step" or "proportional", then set it to be "step"
 		priceTable.priceStrategy = priceStrategy
 		logger("priceStrategy		of %s set to %v\n", nodeName, priceStrategy)
 	}

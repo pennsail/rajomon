@@ -111,7 +111,7 @@ func (pt *PriceTable) UpdatePrice(ctx context.Context) error {
 	gapLatency := ctx.Value("gapLatency").(float64)
 	diff := int64(gapLatency*1000) - pt.latencyThreshold.Microseconds()
 
-	// proportionally adjust the price based on the latency difference if the priceStrategy is "proportional"
+	// proportionally adjust the price based on the latency difference
 	adjustment := diff * pt.priceStep / 10000
 
 	// Implement the decay mechanism
