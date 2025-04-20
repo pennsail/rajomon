@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+// define a package‐wide key type and key constant
+type ctxKey string
+
+const GapLatencyKey ctxKey = "gapLatency"
+
 func (pt *PriceTable) Increment() {
 	atomic.AddInt64(&pt.throughputCounter, 1)
 }
@@ -34,7 +39,6 @@ func (pt *PriceTable) latencyCheck() {
 // queuingCheck checks if the queuing delay of go routine is greater than the latency SLO.
 func (pt *PriceTable) queuingCheck() {
 	// define a custom type for context key
-	type contextKey string
 
 	// init a null histogram
 	var prevHist *metrics.Float64Histogram
@@ -55,7 +59,7 @@ func (pt *PriceTable) queuingCheck() {
 
 		logger("[Incremental Waiting Time Maximum]:	%f ms.\n", gapLatency)
 		// store the gapLatency in the context ctx
-		ctx = context.WithValue(ctx, contextKey("gapLatency"), gapLatency)
+		ctx = context.WithValue(ctx, GapLatencyKey, gapLatency)
 
 		if pt.priceStrategy == "step" {
 			pt.UpdateOwnPrice(pt.overloadDetection(ctx))
@@ -124,9 +128,16 @@ func (pt *PriceTable) checkBoth() {
 // the price table.
 func (pt *PriceTable) overloadDetection(ctx context.Context) bool {
 	if pt.pinpointQueuing {
-		// read the gapLatency from context ctx
-		gapLatency := ctx.Value("gapLatency").(float64)
+		// declare a variable to store the gapLatency
+		var gapLatency float64
 
+		// read the gapLatency from context ctx
+		val := ctx.Value(GapLatencyKey)
+		if val == nil {
+			gapLatency = 0.0
+		} else {
+			gapLatency = val.(float64)
+		}
 		if int64(gapLatency*1000) > pt.latencyThreshold.Microseconds() {
 			return true
 		}

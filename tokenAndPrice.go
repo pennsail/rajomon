@@ -107,8 +107,14 @@ func (pt *PriceTable) UpdatePrice(ctx context.Context) error {
 	ownPriceInterface, _ := pt.priceTableMap.Load("ownprice")
 	ownPrice := ownPriceInterface.(int64)
 
+	var gapLatency float64
 	// 2. Extract gapLatency and calculate the latency difference (diff)
-	gapLatency := ctx.Value("gapLatency").(float64)
+	val := ctx.Value(GapLatencyKey)
+	if val == nil {
+		gapLatency = 0.0
+	} else {
+		gapLatency = val.(float64)
+	}
 	diff := int64(gapLatency*1000) - pt.latencyThreshold.Microseconds()
 
 	// proportionally adjust the price based on the latency difference
