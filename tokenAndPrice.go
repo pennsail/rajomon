@@ -2,9 +2,12 @@ package rajomon
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -98,6 +101,71 @@ func (pt *PriceTable) UpdateOwnPrice(congestion bool) error {
 	}
 	pt.priceTableMap.Store("ownprice", ownPrice)
 	logger("[Update OwnPrice]:	Own price updated to %d\n", ownPrice)
+	return nil
+}
+
+// powerMetrics mirrors the JSON your C service emits.
+type powerMetrics struct {
+	SystemCPU     float64 `json:"system_cpu_power_w"`
+	SystemDRAM    float64 `json:"system_dram_power_w"`
+	ContainerCPU  float64 `json:"cpu_power_w"`
+	ContainerDRAM float64 `json:"dram_power_w"`
+	CPUPercent    float64 `json:"cpu_utilization_percent"`
+}
+
+// FetchPrice queries your C program at http://host:port/power?container_id=cid
+// and returns the parsed metrics.
+func FetchPrice(hostPort string, containerID string) (*powerMetrics, error) {
+	// url := fmt.Sprintf("http://%s/power", hostPort)
+	url := fmt.Sprintf("http://%s/power?container_id=%s", hostPort, containerID)
+	client := &http.Client{Timeout: 2 * time.Second}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("http GET %s failed: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d from %s", resp.StatusCode, url)
+	}
+
+	var m powerMetrics
+	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+		return nil, fmt.Errorf("invalid JSON from %s: %w", url, err)
+	}
+	return &m, nil
+}
+
+// fetchExternalPrice calls your C‐program HTTP API and returns the cpu_power_w value (rounded)
+func (pt *PriceTable) fetchExternalPrice(containerID string) (int64, error) {
+	pm, err := FetchPrice(pt.externalFetchURL, containerID)
+
+	if err != nil {
+		log.Printf("Error fetching power: %v", err)
+		return 0, err
+	}
+	logger("system CPU: %.2f W, system DRAM: %.2f W, container CPU: %.2f W, CPU%%: %.2f%%",
+		pm.SystemCPU, pm.SystemDRAM, pm.ContainerCPU, pm.CPUPercent)
+
+	// post-process the data to get the price
+	price := int64(pm.SystemCPU) / (pt.throughputCounter + 1) // avoid division by zero
+	// ToDo: the counter right now is never updated, so always 0
+	// ToDo: to test without container, we use system CPU power
+	// later on, we can use container CPU power
+
+	return int64(price), nil
+}
+
+// PriceFromCO2 fetches a CO₂‑based price from your external service and
+// replaces pt.ownprice with it.
+func (pt *PriceTable) PriceFromCO2(ctx context.Context, containerID string) error {
+	newPrice, err := pt.fetchExternalPrice(containerID) // uses the helper we wrote earlier
+	if err != nil {
+		return fmt.Errorf("PriceFromCO2: %w", err)
+	}
+	pt.priceTableMap.Store("ownprice", newPrice)
+	logger("[PriceFromCO2]: ownprice updated to %d from CO₂ API\n", newPrice)
 	return nil
 }
 

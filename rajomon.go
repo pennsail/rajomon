@@ -33,6 +33,7 @@ type PriceTable struct {
 	// initprice is the price table's initprice.
 	initprice          int64
 	nodeName           string
+	externalFetchURL   string
 	callMap            map[string][]string
 	priceTableMap      sync.Map
 	rateLimiting       bool

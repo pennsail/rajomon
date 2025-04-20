@@ -54,6 +54,11 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 		debug = debugOpt
 	}
 
+	if externalFetchURL, ok := options["externalFetchURL"].(string); ok {
+		priceTable.externalFetchURL = externalFetchURL
+		logger("externalFetchURL	of %s set to %s\n", nodeName, externalFetchURL)
+	}
+
 	if trackingPrice, ok := options["recordPrice"].(bool); ok {
 		trackPrice = trackingPrice
 	}
