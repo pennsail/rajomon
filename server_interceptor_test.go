@@ -23,6 +23,7 @@ var (
 		"lazyResponse":     false,
 		"rateLimiting":     true,
 		"loadShedding":     true,
+		"pinpointQueuing":  true,
 	}
 
 	defaultCallMap = map[string][]string{

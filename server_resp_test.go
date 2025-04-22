@@ -79,7 +79,7 @@ var (
 		"rateLimiting":     true,
 		"loadShedding":     true,
 		"pinpointQueuing":  true,
-		// "debug":            true,
+		"debug":            false,
 	}
 )
 

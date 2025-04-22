@@ -116,8 +116,12 @@ type powerMetrics struct {
 // FetchPrice queries your C program at http://host:port/power?container_id=cid
 // and returns the parsed metrics.
 func FetchPrice(hostPort string, containerID string) (*powerMetrics, error) {
-	// url := fmt.Sprintf("http://%s/power", hostPort)
-	url := fmt.Sprintf("http://%s/power?container_id=%s", hostPort, containerID)
+	var url string
+	if containerID == "" {
+		url = fmt.Sprintf("http://%s/power", hostPort)
+	} else {
+		url = fmt.Sprintf("http://%s/power?container_id=%s", hostPort, containerID)
+	}
 	client := &http.Client{Timeout: 2 * time.Second}
 
 	resp, err := client.Get(url)
