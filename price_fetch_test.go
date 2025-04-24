@@ -33,7 +33,7 @@ var (
 		"loadShedding":     true,
 		"pinpointQueuing":  true,
 		"debug":            false,
-		"externalFetchURL": "localhost:8080",
+		"externalFetchURL": "host.docker.internal:8080",
 	}
 )
 
