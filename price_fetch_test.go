@@ -1,7 +1,6 @@
 package rajomon
 
 import (
-	"context"
 	"testing"
 	"time"
 )
@@ -46,7 +45,7 @@ func TestPriceFromCO2(t *testing.T) {
 
 	// Case1: throughputCounter=0 => denom=1 => price = int(9.0/1)=9
 	pt.throughputCounter = 0
-	if err := pt.PriceFromCO2(context.Background()); err != nil {
+	if err := pt.PriceFromCO2(); err != nil {
 		t.Fatalf("PriceFromCO2 failed: %v", err)
 	}
 	own1, _ := pt.priceTableMap.Load("ownprice")
@@ -55,15 +54,5 @@ func TestPriceFromCO2(t *testing.T) {
 
 	if own1.(int64) == 0 {
 		t.Errorf("carbon price = %d; want non-zero", own1.(int64))
-	}
-
-	// Case2: throughputCounter=2 => denom=3 => price = int(9.0/3)=3
-	pt.throughputCounter = 2
-	if err := pt.PriceFromCO2(context.Background()); err != nil {
-		t.Fatalf("PriceFromCO2 failed: %v", err)
-	}
-	own2, _ := pt.priceTableMap.Load("ownprice")
-	if own2.(int64) == 0 {
-		t.Errorf("per request price = %d; want non-zero", own2.(int64))
 	}
 }

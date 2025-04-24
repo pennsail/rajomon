@@ -138,7 +138,7 @@ func FetchPrice(hostPort string) (*powerMetrics, error) {
 }
 
 // fetchExternalPrice calls your C‐program HTTP API and returns the cpu_power_w value (rounded)
-func (pt *PriceTable) fetchExternalPrice(ctx context.Context) (int64, error) {
+func (pt *PriceTable) fetchExternalPrice() (int64, error) {
 	pm, err := FetchPrice(pt.externalFetchURL)
 
 	if err != nil {
@@ -151,7 +151,7 @@ func (pt *PriceTable) fetchExternalPrice(ctx context.Context) (int64, error) {
 		pm.CarbonIntensityGPerSec, pm.GridCarbonIntensityGPerKWh)
 
 	// post-process the data to get the price
-	price := int64(pm.CPUPowerW * pm.CarbonIntensityGPerSec / 1000.0)
+	price := int64(pm.CPUPowerW * pm.CarbonIntensityGPerSec)
 	// ToDo: the counter right now is never updated, so always 0
 	// ToDo: to test without container, we use system CPU power
 	// later on, we can use container CPU power
@@ -161,8 +161,8 @@ func (pt *PriceTable) fetchExternalPrice(ctx context.Context) (int64, error) {
 
 // PriceFromCO2 fetches a CO₂‑based price from your external service and
 // replaces pt.ownprice with it.
-func (pt *PriceTable) PriceFromCO2(ctx context.Context) error {
-	newPrice, err := pt.fetchExternalPrice(ctx) // uses the helper we wrote earlier
+func (pt *PriceTable) PriceFromCO2() error {
+	newPrice, err := pt.fetchExternalPrice() // uses the helper we wrote earlier
 	if err != nil {
 		return fmt.Errorf("PriceFromCO2: %w", err)
 	}

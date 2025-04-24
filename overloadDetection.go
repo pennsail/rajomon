@@ -64,7 +64,7 @@ func (pt *PriceTable) queuingCheck() {
 		if pt.priceStrategy == "step" {
 			pt.UpdateOwnPrice(pt.overloadDetection(ctx))
 		} else if pt.priceStrategy == "co2" {
-			pt.PriceFromCO2(ctx)
+			pt.PriceFromCO2()
 		} else {
 			pt.UpdatePrice(ctx)
 		}
