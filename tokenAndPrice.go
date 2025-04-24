@@ -104,24 +104,20 @@ func (pt *PriceTable) UpdateOwnPrice(congestion bool) error {
 	return nil
 }
 
-// powerMetrics mirrors the JSON your C service emits.
+// new powerMetrics with the extra CO₂ fields
 type powerMetrics struct {
-	SystemCPU     float64 `json:"system_cpu_power_w"`
-	SystemDRAM    float64 `json:"system_dram_power_w"`
-	ContainerCPU  float64 `json:"cpu_power_w"`
-	ContainerDRAM float64 `json:"dram_power_w"`
-	CPUPercent    float64 `json:"cpu_utilization_percent"`
+	CPUPowerW                  float64 `json:"cpu_power_w"`
+	DRAMPowerW                 float64 `json:"dram_power_w"`
+	CPUUtilizationPercent      float64 `json:"cpu_utilization_percent"`
+	CarbonIntensityGPerSec     float64 `json:"carbon_intensity_g_per_sec"`
+	GridCarbonIntensityGPerKWh float64 `json:"grid_carbon_intensity_g_per_kWh"`
 }
 
 // FetchPrice queries your C program at http://host:port/power?container_id=cid
 // and returns the parsed metrics.
-func FetchPrice(hostPort string, containerID string) (*powerMetrics, error) {
-	var url string
-	if containerID == "" {
-		url = fmt.Sprintf("http://%s/power", hostPort)
-	} else {
-		url = fmt.Sprintf("http://%s/power?container_id=%s", hostPort, containerID)
-	}
+func FetchPrice(hostPort string) (*powerMetrics, error) {
+	url := fmt.Sprintf("http://%s", hostPort)
+
 	client := &http.Client{Timeout: 2 * time.Second}
 
 	resp, err := client.Get(url)
@@ -142,18 +138,20 @@ func FetchPrice(hostPort string, containerID string) (*powerMetrics, error) {
 }
 
 // fetchExternalPrice calls your C‐program HTTP API and returns the cpu_power_w value (rounded)
-func (pt *PriceTable) fetchExternalPrice(containerID string) (int64, error) {
-	pm, err := FetchPrice(pt.externalFetchURL, containerID)
+func (pt *PriceTable) fetchExternalPrice(ctx context.Context) (int64, error) {
+	pm, err := FetchPrice(pt.externalFetchURL)
 
 	if err != nil {
 		log.Printf("Error fetching power: %v", err)
 		return 0, err
 	}
-	logger("system CPU: %.2f W, system DRAM: %.2f W, container CPU: %.2f W, CPU%%: %.2f%%",
-		pm.SystemCPU, pm.SystemDRAM, pm.ContainerCPU, pm.CPUPercent)
+	logger("system CPU: %.2f W, container CPU: %.2f W, CPU percent: %.2f%%\n",
+		pm.CPUPowerW, pm.DRAMPowerW, pm.CPUUtilizationPercent)
+	logger("carbon intensity: %.2f g/s, grid carbon intensity: %.2f g/kWh\n",
+		pm.CarbonIntensityGPerSec, pm.GridCarbonIntensityGPerKWh)
 
 	// post-process the data to get the price
-	price := int64(pm.SystemCPU) / (pt.throughputCounter + 1) // avoid division by zero
+	price := int64(pm.CPUPowerW * pm.CarbonIntensityGPerSec / 1000.0)
 	// ToDo: the counter right now is never updated, so always 0
 	// ToDo: to test without container, we use system CPU power
 	// later on, we can use container CPU power
@@ -163,8 +161,8 @@ func (pt *PriceTable) fetchExternalPrice(containerID string) (int64, error) {
 
 // PriceFromCO2 fetches a CO₂‑based price from your external service and
 // replaces pt.ownprice with it.
-func (pt *PriceTable) PriceFromCO2(ctx context.Context, containerID string) error {
-	newPrice, err := pt.fetchExternalPrice(containerID) // uses the helper we wrote earlier
+func (pt *PriceTable) PriceFromCO2(ctx context.Context) error {
+	newPrice, err := pt.fetchExternalPrice(ctx) // uses the helper we wrote earlier
 	if err != nil {
 		return fmt.Errorf("PriceFromCO2: %w", err)
 	}

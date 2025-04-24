@@ -9,20 +9,16 @@ import (
 // TestFetchPrice verifies that FetchPrice correctly parses JSON from the HTTP endpoint.
 func TestFetchPrice(t *testing.T) {
 	// call FetchPrice
-	pm, err := FetchPrice("localhost:8080", "")
+	pm, err := FetchPrice("host.docker.internal:8080")
 	if err != nil {
 		t.Fatalf("FetchPrice error: %v", err)
 	}
 	// compare values
-	if pm.SystemCPU == 0 {
-		t.Errorf("SystemCPU = %v; want non-zero", pm.SystemCPU)
+	// non of the pm values should be 0. check all powerMetrics attributes
+	if pm.CPUPowerW == 0 || pm.DRAMPowerW == 0 || pm.CPUUtilizationPercent == 0 || pm.CarbonIntensityGPerSec == 0 || pm.GridCarbonIntensityGPerKWh == 0 {
+		t.Errorf("FetchPrice returned zero values: %v", pm)
 	}
-	if pm.ContainerCPU != 0 {
-		t.Errorf("ContainerCPU = %v; want zero", pm.ContainerCPU)
-	}
-	if pm.CPUPercent < 0 || pm.CPUPercent > 100 {
-		t.Errorf("CPUPercent = %v; want between 0 and 100", pm.CPUPercent)
-	}
+
 }
 
 var (
@@ -46,11 +42,11 @@ func TestPriceFromCO2(t *testing.T) {
 	// Prepare a PriceTable with externalFetchURL pointing to our server
 	callMap := map[string][]string{"Greeting": {}}
 
-	pt := NewRajomon("", callMap, CO2opts)
+	pt := NewRajomon("raj-test", callMap, CO2opts)
 
 	// Case1: throughputCounter=0 => denom=1 => price = int(9.0/1)=9
 	pt.throughputCounter = 0
-	if err := pt.PriceFromCO2(context.Background(), ""); err != nil {
+	if err := pt.PriceFromCO2(context.Background()); err != nil {
 		t.Fatalf("PriceFromCO2 failed: %v", err)
 	}
 	own1, _ := pt.priceTableMap.Load("ownprice")
@@ -63,7 +59,7 @@ func TestPriceFromCO2(t *testing.T) {
 
 	// Case2: throughputCounter=2 => denom=3 => price = int(9.0/3)=3
 	pt.throughputCounter = 2
-	if err := pt.PriceFromCO2(context.Background(), ""); err != nil {
+	if err := pt.PriceFromCO2(context.Background()); err != nil {
 		t.Fatalf("PriceFromCO2 failed: %v", err)
 	}
 	own2, _ := pt.priceTableMap.Load("ownprice")
