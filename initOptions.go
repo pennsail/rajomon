@@ -32,6 +32,7 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 		tokenStrategy:        "all",
 		priceStrategy:        "step",
 		throughputCounter:    0,
+		sampleDiv:            10,
 		priceUpdateRate:      time.Millisecond * 10,
 		observedDelay:        time.Duration(0),
 		clientTimeOut:        time.Duration(0),
@@ -52,6 +53,11 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 
 	if debugOpt, ok := options["debug"].(bool); ok {
 		debug = debugOpt
+	}
+
+	if externalFetchURL, ok := options["externalFetchURL"].(string); ok {
+		priceTable.externalFetchURL = externalFetchURL
+		logger("externalFetchURL	of %s set to %s\n", nodeName, externalFetchURL)
 	}
 
 	if trackingPrice, ok := options["recordPrice"].(bool); ok {

@@ -2,9 +2,12 @@ package rajomon
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -101,14 +104,87 @@ func (pt *PriceTable) UpdateOwnPrice(congestion bool) error {
 	return nil
 }
 
+// new powerMetrics with the extra CO₂ fields
+type powerMetrics struct {
+	CPUPowerW                  float64 `json:"cpu_power_w"`
+	DRAMPowerW                 float64 `json:"dram_power_w"`
+	CPUUtilizationPercent      float64 `json:"cpu_utilization_percent"`
+	CarbonIntensityGPerSec     float64 `json:"carbon_intensity_g_per_sec"`
+	GridCarbonIntensityGPerKWh float64 `json:"grid_carbon_intensity_g_per_kWh"`
+}
+
+// FetchPrice queries your C program at http://host:port/power?container_id=cid
+// and returns the parsed metrics.
+func FetchPrice(hostPort string) (*powerMetrics, error) {
+	url := fmt.Sprintf("http://%s", hostPort)
+
+	client := &http.Client{Timeout: 2 * time.Second}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("http GET %s failed: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d from %s", resp.StatusCode, url)
+	}
+
+	var m powerMetrics
+	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+		return nil, fmt.Errorf("invalid JSON from %s: %w", url, err)
+	}
+	return &m, nil
+}
+
+// fetchExternalPrice calls your C‐program HTTP API and returns the cpu_power_w value (rounded)
+func (pt *PriceTable) fetchExternalPrice() (int64, error) {
+	pm, err := FetchPrice(pt.externalFetchURL)
+
+	if err != nil {
+		log.Printf("Error fetching power: %v", err)
+		return 0, err
+	}
+	logger("system CPU: %.2f W, container CPU: %.2f W, CPU percent: %.2f%%\n",
+		pm.CPUPowerW, pm.DRAMPowerW, pm.CPUUtilizationPercent)
+	logger("carbon intensity: %.2f g/s, grid carbon intensity: %.2f g/kWh\n",
+		pm.CarbonIntensityGPerSec, pm.GridCarbonIntensityGPerKWh)
+	// the unit of gpersec seems to be g CO2/s
+
+	// post-process the data to get the price
+	throughput := pt.GetCount()
+	price := int64(pm.CarbonIntensityGPerSec * 1e9 / float64(throughput+1))
+
+	// this price can be interpreted as the micrograms of CO₂ per 1000 requests
+	return int64(price), nil
+}
+
+// PriceFromCO2 fetches a CO₂‑based price from your external service and
+// replaces pt.ownprice with it.
+func (pt *PriceTable) PriceFromCO2() error {
+	newPrice, err := pt.fetchExternalPrice() // uses the helper we wrote earlier
+	if err != nil {
+		return fmt.Errorf("PriceFromCO2: %w", err)
+	}
+	pt.priceTableMap.Store("ownprice", newPrice)
+	logger("[PriceFromCO2]: ownprice updated to %d from CO₂ API\n", newPrice)
+	return nil
+}
+
 // merged function for both linear and exponential price update
 func (pt *PriceTable) UpdatePrice(ctx context.Context) error {
 	// 1. Retrieve the current ownPrice
 	ownPriceInterface, _ := pt.priceTableMap.Load("ownprice")
 	ownPrice := ownPriceInterface.(int64)
 
+	var gapLatency float64
 	// 2. Extract gapLatency and calculate the latency difference (diff)
-	gapLatency := ctx.Value("gapLatency").(float64)
+	val := ctx.Value(GapLatencyKey)
+	if val == nil {
+		gapLatency = 0.0
+	} else {
+		gapLatency = val.(float64)
+	}
 	diff := int64(gapLatency*1000) - pt.latencyThreshold.Microseconds()
 
 	// proportionally adjust the price based on the latency difference
