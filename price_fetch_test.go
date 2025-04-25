@@ -27,6 +27,7 @@ var (
 		"latencyThreshold": 500 * time.Microsecond,
 		"priceStep":        int64(180),
 		"priceStrategy":    "co2",
+		"priceAggregation": "additive",
 		"lazyResponse":     false,
 		"rateLimiting":     true,
 		"loadShedding":     true,

@@ -56,6 +56,7 @@ type PriceTable struct {
 	tokenStrategy        string
 	priceStrategy        string
 	throughputCounter    int64
+	sampleDiv            uint32
 	priceUpdateRate      time.Duration
 	observedDelay        time.Duration
 	clientTimeOut        time.Duration
@@ -157,7 +158,7 @@ func (pt *PriceTable) LoadShedding(ctx context.Context, tokens int64, methodName
 			return 0, strconv.FormatInt(totalPrice, 10), InsufficientTokens
 		}
 
-		if pt.pinpointThroughput {
+		if pt.pinpointThroughput || pt.priceStrategy == "co2" {
 			pt.Increment()
 		}
 

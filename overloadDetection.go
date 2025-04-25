@@ -5,6 +5,8 @@ import (
 	"runtime/metrics"
 	"sync/atomic"
 	"time"
+
+	"github.com/bytedance/gopkg/lang/fastrand"
 )
 
 // define a package‐wide key type and key constant
@@ -13,7 +15,9 @@ type ctxKey string
 const GapLatencyKey ctxKey = "gapLatency"
 
 func (pt *PriceTable) Increment() {
-	atomic.AddInt64(&pt.throughputCounter, 1)
+	if fastrand.Uint32()%pt.sampleDiv == 0 {
+		atomic.AddInt64(&pt.throughputCounter, 1)
+	}
 }
 
 func (pt *PriceTable) Decrement(step int64) {
@@ -21,8 +25,8 @@ func (pt *PriceTable) Decrement(step int64) {
 }
 
 func (pt *PriceTable) GetCount() int64 {
-	// return atomic.LoadInt64(&cc.throughtputCounter)
-	return atomic.SwapInt64(&pt.throughputCounter, 0)
+	raw := atomic.SwapInt64(&pt.throughputCounter, 0)
+	return raw * int64(pt.sampleDiv)
 }
 
 func (pt *PriceTable) latencyCheck() {

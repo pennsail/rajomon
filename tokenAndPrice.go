@@ -151,10 +151,8 @@ func (pt *PriceTable) fetchExternalPrice() (int64, error) {
 		pm.CarbonIntensityGPerSec, pm.GridCarbonIntensityGPerKWh)
 
 	// post-process the data to get the price
-	price := int64(pm.CPUPowerW * pm.CarbonIntensityGPerSec)
-	// ToDo: the counter right now is never updated, so always 0
-	// ToDo: to test without container, we use system CPU power
-	// later on, we can use container CPU power
+	throughput := pt.GetCount()
+	price := int64(pm.CarbonIntensityGPerSec / float64(throughput+1))
 
 	return int64(price), nil
 }

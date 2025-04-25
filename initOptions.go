@@ -32,6 +32,7 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 		tokenStrategy:        "all",
 		priceStrategy:        "step",
 		throughputCounter:    0,
+		sampleDiv:            10,
 		priceUpdateRate:      time.Millisecond * 10,
 		observedDelay:        time.Duration(0),
 		clientTimeOut:        time.Duration(0),
