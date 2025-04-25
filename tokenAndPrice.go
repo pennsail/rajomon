@@ -109,7 +109,7 @@ type powerMetrics struct {
 	CPUPowerW                  float64 `json:"cpu_power_w"`
 	DRAMPowerW                 float64 `json:"dram_power_w"`
 	CPUUtilizationPercent      float64 `json:"cpu_utilization_percent"`
-	CarbonIntensityGPerSec     float64 `json:"carbon_intensity_g_per_sec"`
+	CarbonUGPerSec             float64 `json:"carbon_rate_ug_per_sec"`
 	GridCarbonIntensityGPerKWh float64 `json:"grid_carbon_intensity_g_per_kWh"`
 }
 
@@ -148,13 +148,11 @@ func (pt *PriceTable) fetchExternalPrice() (int64, error) {
 	logger("system CPU: %.2f W, container CPU: %.2f W, CPU percent: %.2f%%\n",
 		pm.CPUPowerW, pm.DRAMPowerW, pm.CPUUtilizationPercent)
 	logger("carbon intensity: %.2f g/s, grid carbon intensity: %.2f g/kWh\n",
-		pm.CarbonIntensityGPerSec, pm.GridCarbonIntensityGPerKWh)
-	// the unit of gpersec seems to be g CO2/s
+		pm.CarbonUGPerSec, pm.GridCarbonIntensityGPerKWh)
 
 	// post-process the data to get the price
 	throughput := pt.GetCount()
-	price := int64(pm.CarbonIntensityGPerSec * 1e9 / float64(throughput+1))
-
+	price := int64(pm.CarbonUGPerSec * 1e3 / float64(throughput+1))
 	// this price can be interpreted as the micrograms of CO₂ per 1000 requests
 	return int64(price), nil
 }

@@ -14,7 +14,7 @@ func TestFetchPrice(t *testing.T) {
 	}
 	// compare values
 	// non of the pm values should be 0. check all powerMetrics attributes
-	if pm.CPUPowerW == 0 || pm.DRAMPowerW == 0 || pm.CPUUtilizationPercent == 0 || pm.CarbonIntensityGPerSec == 0 || pm.GridCarbonIntensityGPerKWh == 0 {
+	if pm.CPUPowerW == 0 || pm.DRAMPowerW == 0 || pm.CPUUtilizationPercent == 0 || pm.CarbonUGPerSec == 0 || pm.GridCarbonIntensityGPerKWh == 0 {
 		t.Errorf("FetchPrice returned zero values: %v", pm)
 	}
 
