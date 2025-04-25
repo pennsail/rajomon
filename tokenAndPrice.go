@@ -149,11 +149,13 @@ func (pt *PriceTable) fetchExternalPrice() (int64, error) {
 		pm.CPUPowerW, pm.DRAMPowerW, pm.CPUUtilizationPercent)
 	logger("carbon intensity: %.2f g/s, grid carbon intensity: %.2f g/kWh\n",
 		pm.CarbonIntensityGPerSec, pm.GridCarbonIntensityGPerKWh)
+	// the unit of gpersec seems to be g CO2/s
 
 	// post-process the data to get the price
 	throughput := pt.GetCount()
-	price := int64(pm.CarbonIntensityGPerSec / float64(throughput+1))
+	price := int64(pm.CarbonIntensityGPerSec * 1e9 / float64(throughput+1))
 
+	// this price can be interpreted as the micrograms of CO₂ per 1000 requests
 	return int64(price), nil
 }
 
