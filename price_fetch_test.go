@@ -1,6 +1,8 @@
 package rajomon
 
 import (
+	"fmt"
+	"os"
 	"testing"
 	"time"
 )
@@ -8,7 +10,10 @@ import (
 // TestFetchPrice verifies that FetchPrice correctly parses JSON from the HTTP endpoint.
 func TestFetchPrice(t *testing.T) {
 	// call FetchPrice
-	pm, err := FetchPrice("host.docker.internal:8080")
+	host := os.Getenv("HOST_IP")
+	url := fmt.Sprintf("http://%s:8080", host)
+
+	pm, err := FetchPrice(url)
 	if err != nil {
 		t.Fatalf("FetchPrice error: %v", err)
 	}
@@ -41,7 +46,6 @@ var (
 		"loadShedding":     true,
 		"pinpointQueuing":  true,
 		"debug":            false,
-		"externalFetchURL": "host.docker.internal:8080",
 	}
 )
 

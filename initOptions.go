@@ -1,7 +1,9 @@
 package rajomon
 
 import (
+	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -47,6 +49,13 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 		decayRate:            0.8,
 		maxToken:             10,
 	}
+
+	host := os.Getenv("HOST_IP")
+	// if the host is not set, then set it to be "host.docker.internal"
+	if host == "" {
+		host = "host.docker.internal"
+	}
+	priceTable.externalFetchURL = fmt.Sprintf("http://%s:8080", host)
 
 	// create a new incoming context with the "request-id" as "0"
 	// ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("request-id", "0"))
