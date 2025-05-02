@@ -27,13 +27,20 @@ var (
 	trackPrice         = false
 )
 
+type priceUpdate struct {
+	own *int64 // own price
+	ds  *int64 // downstream price
+}
+
 // PriceTable implements the Rajomon price table
 type PriceTable struct {
 	// The following lockfree hashmap should contain total price, selfprice and downstream price
 	// initprice is the price table's initprice.
 	initprice          int64
 	nodeName           string
-	externalFetchURL   string
+	externalPriceURL   string
+	postPrice          bool
+	postCh             chan priceUpdate
 	callMap            map[string][]string
 	priceTableMap      sync.Map
 	rateLimiting       bool

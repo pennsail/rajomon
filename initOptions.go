@@ -15,6 +15,7 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 		nodeName:             nodeName,
 		callMap:              callmap,
 		priceTableMap:        sync.Map{},
+		postPrice:            false,
 		rateLimiting:         false,
 		rateLimitWaiting:     false,
 		loadShedding:         false,
@@ -55,7 +56,7 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 	if host == "" {
 		host = "host.docker.internal"
 	}
-	priceTable.externalFetchURL = fmt.Sprintf("%s:8080", host)
+	priceTable.externalPriceURL = fmt.Sprintf("%s:8080", host)
 
 	// create a new incoming context with the "request-id" as "0"
 	// ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("request-id", "0"))
@@ -64,9 +65,9 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 		debug = debugOpt
 	}
 
-	if externalFetchURL, ok := options["externalFetchURL"].(string); ok {
-		priceTable.externalFetchURL = externalFetchURL
-		logger("externalFetchURL	of %s set to %s\n", nodeName, externalFetchURL)
+	if externalPriceURL, ok := options["externalPriceURL"].(string); ok {
+		priceTable.externalPriceURL = externalPriceURL
+		logger("externalPriceURL	of %s set to %s\n", nodeName, externalPriceURL)
 	}
 
 	if trackingPrice, ok := options["recordPrice"].(bool); ok {
@@ -77,6 +78,11 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 		priceTable.initprice = initprice
 		// print the initprice of the node if the name is not client
 		logger("initprice of %s set to %d\n", nodeName, priceTable.initprice)
+	}
+
+	if postPrice, ok := options["postPrice"].(bool); ok {
+		priceTable.postPrice = postPrice
+		logger("postPrice		of %s set to %v\n", nodeName, postPrice)
 	}
 
 	if rateLimiting, ok := options["rateLimiting"].(bool); ok {
@@ -241,6 +247,12 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 			logger("[InitPriceTable]: Method %s-%s price set to %d\n", method, node, priceTable.initprice)
 		}
 	}
+
+	if priceTable.postPrice {
+		priceTable.postCh = make(chan priceUpdate, 100)
+		go priceTable.postPriceToServer()
+	}
+
 	return priceTable
 }
 

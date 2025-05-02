@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -139,7 +141,7 @@ func FetchPrice(hostPort string) (*powerMetrics, error) {
 
 // fetchExternalPrice calls your C‐program HTTP API and returns the cpu_power_w value (rounded)
 func (pt *PriceTable) fetchExternalPrice() (int64, error) {
-	pm, err := FetchPrice(pt.externalFetchURL)
+	pm, err := FetchPrice(pt.externalPriceURL)
 
 	if err != nil {
 		log.Printf("Error fetching power: %v", err)
@@ -167,6 +169,35 @@ func (pt *PriceTable) PriceFromCO2() error {
 	pt.priceTableMap.Store("ownprice", newPrice)
 	logger("[PriceFromCO2]: ownprice updated to %d from CO₂ API\n", newPrice)
 	return nil
+}
+
+func (pt *PriceTable) postPriceToServer() {
+	var lastOwn, lastDs *int64
+	for upd := range pt.postCh {
+		if upd.own != nil {
+			lastOwn = upd.own
+		}
+		if upd.ds != nil {
+			lastDs = upd.ds
+		}
+		if lastOwn != nil && lastDs != nil {
+			// send the last own and downstream prices to the server
+			form := url.Values{
+				"current_price":        {fmt.Sprintf("%d", *lastOwn)},
+				"max_downstream_price": {fmt.Sprintf("%d", *lastDs)},
+			}
+			resp, err := http.PostForm(pt.externalPriceURL, form)
+			if err != nil {
+				logger("[PostLoop] POST failed: %v", err)
+			} else {
+				io.Copy(io.Discard, resp.Body)
+				resp.Body.Close()
+				logger("[PostLoop] POSTed own=%d ds=%d", *lastOwn, *lastDs)
+			}
+			// reset the last own and downstream prices
+			lastOwn, lastDs = nil, nil
+		}
+	}
 }
 
 // merged function for both linear and exponential price update
@@ -223,6 +254,14 @@ func (pt *PriceTable) UpdatePrice(ctx context.Context) error {
 		pt.lastUpdateTime = time.Now()
 	}
 
+	if pt.postPrice {
+		sel := priceUpdate{own: new(int64)}
+		*sel.own = ownPrice
+		select {
+		case pt.postCh <- sel:
+		default: // drop the update if the channel is full
+		}
+	}
 	return nil
 }
 
@@ -246,6 +285,15 @@ func (pt *PriceTable) UpdateDownstreamPrice(ctx context.Context, method string, 
 			// update the downstream price
 			pt.priceTableMap.Store(method, downstreamPrice)
 			logger("[Updating DS Price]:	Downstream price of %s updated to %d\n", method, downstreamPrice)
+
+			if pt.postPrice {
+				sel := priceUpdate{ds: new(int64)}
+				*sel.ds = downstreamPrice
+				select {
+				case pt.postCh <- sel:
+				default:
+				}
+			}
 			return downstreamPrice, nil
 		}
 		// if the downstream price is not greater than the current downstream price, store it and calculate the max
@@ -263,8 +311,17 @@ func (pt *PriceTable) UpdateDownstreamPrice(ctx context.Context, method string, 
 		})
 		logger("[Updated DS Price]:	The price of %s is now %d\n", method, maxPrice)
 		// update the downstream price only for the method involved in the request.
+
 		pt.priceTableMap.Store(method, maxPrice)
 
+		if pt.postPrice {
+			sel := priceUpdate{ds: new(int64)}
+			*sel.ds = downstreamPrice
+			select {
+			case pt.postCh <- sel:
+			default:
+			}
+		}
 	} else if pt.priceAggregation == "additive" {
 		// load the downstream price from the price table with method + node name as key.
 		downstreamPrice_old, loaded := pt.priceTableMap.Swap(method+"-"+nodeName, downstreamPrice)
