@@ -117,8 +117,7 @@ type powerMetrics struct {
 
 // FetchPrice queries your C program at http://host:port/power?container_id=cid
 // and returns the parsed metrics.
-func FetchPrice(hostPort string) (*powerMetrics, error) {
-	url := fmt.Sprintf("http://%s", hostPort)
+func FetchPrice(url string) (*powerMetrics, error) {
 
 	client := &http.Client{Timeout: 2 * time.Second}
 
@@ -186,6 +185,7 @@ func (pt *PriceTable) postPriceToServer() {
 				"current_price":        {fmt.Sprintf("%d", *lastOwn)},
 				"max_downstream_price": {fmt.Sprintf("%d", *lastDs)},
 			}
+
 			resp, err := http.PostForm(pt.externalPriceURL, form)
 			if err != nil {
 				logger("[PostLoop] POST failed: %v", err)

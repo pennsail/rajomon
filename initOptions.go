@@ -56,7 +56,7 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 	if host == "" {
 		host = "host.docker.internal"
 	}
-	priceTable.externalPriceURL = fmt.Sprintf("%s:8080", host)
+	priceTable.externalPriceURL = fmt.Sprintf("http://%s:8080", host)
 
 	// create a new incoming context with the "request-id" as "0"
 	// ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("request-id", "0"))
