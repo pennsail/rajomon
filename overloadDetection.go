@@ -80,8 +80,8 @@ func (pt *PriceTable) queuingCheck() {
 
 		// if postDelay, then call postDelayToServer() to send the delay to the dvfs controller
 		if pt.postDelay {
-			// postDelayToServer(ctx, pt.postDelayURL, pt.postDelayPort, gapLatency)
-			pt.postDelayToServer(gapLatency, pt.latencyThreshold.Milliseconds())
+			// post the delay to the server, in microseconds
+			pt.postDelayToServer(int64(gapLatency*1000), pt.latencyThreshold.Microseconds())
 		}
 	}
 }

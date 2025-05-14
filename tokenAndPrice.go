@@ -171,10 +171,10 @@ func (pt *PriceTable) PriceFromCO2() error {
 }
 
 // sends them to the service via HTTP form POST.
-func (pt *PriceTable) postDelayToServer(currentDelayMs float64, targetDelayMs int64) {
+func (pt *PriceTable) postDelayToServer(currentDelay, targetDelay int64) {
 	form := url.Values{
-		"current_delay": {fmt.Sprintf("%.2f", currentDelayMs)},
-		"target_delay":  {fmt.Sprintf("%d", targetDelayMs)},
+		"current_delay": {fmt.Sprintf("%d", currentDelay)},
+		"target_delay":  {fmt.Sprintf("%d", targetDelay)},
 	}
 	resp, err := http.PostForm(pt.externalDelayURL, form)
 	if err != nil {
@@ -183,7 +183,8 @@ func (pt *PriceTable) postDelayToServer(currentDelayMs float64, targetDelayMs in
 	}
 	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
-	logger("[postDelay] sent current=%.2fms target=%dms", currentDelayMs, targetDelayMs)
+	logger("[postDelay] sent current=%d microseconds, target=%d microseconds\n",
+		currentDelay, targetDelay)
 }
 
 // postPriceToServer sends the current own and downstream prices to the server
