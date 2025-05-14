@@ -27,7 +27,7 @@ var (
 	trackPrice         = false
 )
 
-type priceUpdate struct {
+type PriceUpdate struct {
 	own *int64 // own price
 	ds  *int64 // downstream price
 }
@@ -39,8 +39,10 @@ type PriceTable struct {
 	initprice          int64
 	nodeName           string
 	externalPriceURL   string
+	externalDelayURL   string
 	postPrice          bool
-	postCh             chan priceUpdate
+	postDelay          bool
+	postCh             chan PriceUpdate
 	callMap            map[string][]string
 	priceTableMap      sync.Map
 	rateLimiting       bool

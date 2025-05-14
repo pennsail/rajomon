@@ -77,6 +77,12 @@ func (pt *PriceTable) queuingCheck() {
 		prevHist = currHist
 		// log the time elapsed for the query
 		logger("[Query Latency]:	Overhead is %.2f milliseconds\n", float64(time.Since(start).Microseconds())/1000)
+
+		// if postDelay, then call postDelayToServer() to send the delay to the dvfs controller
+		if pt.postDelay {
+			// postDelayToServer(ctx, pt.postDelayURL, pt.postDelayPort, gapLatency)
+			pt.postDelayToServer(gapLatency, pt.latencyThreshold.Milliseconds())
+		}
 	}
 }
 

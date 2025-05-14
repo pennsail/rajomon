@@ -16,6 +16,7 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 		callMap:              callmap,
 		priceTableMap:        sync.Map{},
 		postPrice:            false,
+		postDelay:            false,
 		rateLimiting:         false,
 		rateLimitWaiting:     false,
 		loadShedding:         false,
@@ -56,7 +57,9 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 	if host == "" {
 		host = "host.docker.internal"
 	}
+
 	priceTable.externalPriceURL = fmt.Sprintf("http://%s:8080", host)
+	priceTable.externalDelayURL = fmt.Sprintf("http://%s:8080", host)
 
 	// create a new incoming context with the "request-id" as "0"
 	// ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("request-id", "0"))
@@ -68,6 +71,11 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 	if externalPriceURL, ok := options["externalPriceURL"].(string); ok {
 		priceTable.externalPriceURL = externalPriceURL
 		logger("externalPriceURL	of %s set to %s\n", nodeName, externalPriceURL)
+	}
+
+	if externalDelayURL, ok := options["externalDelayURL"].(string); ok {
+		priceTable.externalDelayURL = externalDelayURL
+		logger("externalDelayURL	of %s set to %s\n", nodeName, externalDelayURL)
 	}
 
 	if trackingPrice, ok := options["recordPrice"].(bool); ok {
@@ -83,6 +91,11 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 	if postPrice, ok := options["postPrice"].(bool); ok {
 		priceTable.postPrice = postPrice
 		logger("postPrice		of %s set to %v\n", nodeName, postPrice)
+	}
+
+	if postDelay, ok := options["postDelay"].(bool); ok {
+		priceTable.postDelay = postDelay
+		logger("postDelay		of %s set to %v\n", nodeName, postDelay)
 	}
 
 	if rateLimiting, ok := options["rateLimiting"].(bool); ok {
@@ -249,7 +262,7 @@ func NewRajomon(nodeName string, callmap map[string][]string, options map[string
 	}
 
 	if priceTable.postPrice {
-		priceTable.postCh = make(chan priceUpdate, 100)
+		priceTable.postCh = make(chan PriceUpdate, 100)
 		go priceTable.postPriceToServer()
 	}
 

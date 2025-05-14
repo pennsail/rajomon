@@ -170,34 +170,53 @@ func (pt *PriceTable) PriceFromCO2() error {
 	return nil
 }
 
+// sends them to the service via HTTP form POST.
+func (pt *PriceTable) postDelayToServer(currentDelayMs float64, targetDelayMs int64) {
+	form := url.Values{
+		"current_delay": {fmt.Sprintf("%.2f", currentDelayMs)},
+		"target_delay":  {fmt.Sprintf("%d", targetDelayMs)},
+	}
+	resp, err := http.PostForm(pt.externalDelayURL, form)
+	if err != nil {
+		logger("[postDelay] POST failed: %v", err)
+		return
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+	logger("[postDelay] sent current=%.2fms target=%dms", currentDelayMs, targetDelayMs)
+}
+
+// postPriceToServer sends the current own and downstream prices to the server
 func (pt *PriceTable) postPriceToServer() {
-	var lastOwn, lastDs *int64
+	var lastOwn, lastDs int64
+
 	for upd := range pt.postCh {
 		if upd.own != nil {
-			lastOwn = upd.own
+			lastOwn = *upd.own
+			pt.sendPrice(lastOwn, lastDs)
 		}
 		if upd.ds != nil {
-			lastDs = upd.ds
-		}
-		if lastOwn != nil && lastDs != nil {
-			// send the last own and downstream prices to the server
-			form := url.Values{
-				"current_price":        {fmt.Sprintf("%d", *lastOwn)},
-				"max_downstream_price": {fmt.Sprintf("%d", *lastDs)},
-			}
-
-			resp, err := http.PostForm(pt.externalPriceURL, form)
-			if err != nil {
-				logger("[PostLoop] POST failed: %v", err)
-			} else {
-				io.Copy(io.Discard, resp.Body)
-				resp.Body.Close()
-				logger("[PostLoop] POSTed own=%d ds=%d", *lastOwn, *lastDs)
-			}
-			// reset the last own and downstream prices
-			lastOwn, lastDs = nil, nil
+			lastDs = *upd.ds
+			pt.sendPrice(lastOwn, lastDs)
 		}
 	}
+}
+
+// pull the POST logic out into its own helper so it’s easy to call
+func (pt *PriceTable) sendPrice(own, ds int64) {
+	form := url.Values{
+		"current_price":        {fmt.Sprintf("%d", own)},
+		"max_downstream_price": {fmt.Sprintf("%d", ds)},
+	}
+
+	resp, err := http.PostForm(pt.externalPriceURL, form)
+	if err != nil {
+		logger("[PostPrice] POST failed: %v", err)
+		return
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+	logger("[PostPrice] POSTed own=%d ds=%d", own, ds)
 }
 
 // merged function for both linear and exponential price update
@@ -255,7 +274,7 @@ func (pt *PriceTable) UpdatePrice(ctx context.Context) error {
 	}
 
 	if pt.postPrice {
-		sel := priceUpdate{own: new(int64)}
+		sel := PriceUpdate{own: new(int64)}
 		*sel.own = ownPrice
 		select {
 		case pt.postCh <- sel:
@@ -287,7 +306,7 @@ func (pt *PriceTable) UpdateDownstreamPrice(ctx context.Context, method string, 
 			logger("[Updating DS Price]:	Downstream price of %s updated to %d\n", method, downstreamPrice)
 
 			if pt.postPrice {
-				sel := priceUpdate{ds: new(int64)}
+				sel := PriceUpdate{ds: new(int64)}
 				*sel.ds = downstreamPrice
 				select {
 				case pt.postCh <- sel:
@@ -315,7 +334,7 @@ func (pt *PriceTable) UpdateDownstreamPrice(ctx context.Context, method string, 
 		pt.priceTableMap.Store(method, maxPrice)
 
 		if pt.postPrice {
-			sel := priceUpdate{ds: new(int64)}
+			sel := PriceUpdate{ds: new(int64)}
 			*sel.ds = downstreamPrice
 			select {
 			case pt.postCh <- sel:
