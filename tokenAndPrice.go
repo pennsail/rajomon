@@ -174,7 +174,7 @@ func (pt *PriceTable) PriceFromCO2() error {
 func (pt *PriceTable) postDelayToServer(currentDelay, targetDelay int64) {
 	form := url.Values{
 		"current_delay": {fmt.Sprintf("%d", currentDelay)},
-		"target_delay":  {fmt.Sprintf("%d", targetDelay)},
+		"target_delay":  {fmt.Sprintf("%d/", targetDelay)},
 	}
 	resp, err := http.PostForm(pt.externalDelayURL, form)
 	if err != nil {
@@ -207,7 +207,7 @@ func (pt *PriceTable) postPriceToServer() {
 func (pt *PriceTable) sendPrice(own, ds int64) {
 	form := url.Values{
 		"current_price":        {fmt.Sprintf("%d", own)},
-		"max_downstream_price": {fmt.Sprintf("%d", ds)},
+		"max_downstream_price": {fmt.Sprintf("%d/", ds)},
 	}
 
 	resp, err := http.PostForm(pt.externalPriceURL, form)
